@@ -8,4 +8,5 @@ This is a small collection of HP-UX related scripts. YMMV in terms of usage.
 
 * **handle_failed_lunpaths.sh** : shows and/or removes failed LUN paths on HP-UX using the `scsimgr` tool. For more documentation, read http://www.kudos.be/Projects/Clean_up_failed_LUN_paths_on_HP-UX.html
 
+* **pvs.pl/vgs.pl/lvs.pl**: show basic LVM information in Linux-style.
 

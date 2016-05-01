@@ -77,9 +77,9 @@ printf STDOUT ("\n%-20s %-10s %-15s %-7s %-8s %-8s %-8s\n",
 
 # fetch LVOLs
 if ($options{'vg'}) {
-    @vgdisplay = `/usr/sbin/vgdisplay -vF ${options{'vg'}} | grep "^pv_name"`;
+    @vgdisplay = `/usr/sbin/vgdisplay -vF ${options{'vg'}} 2>/dev/null | grep "^pv_name"`;
 } else {
-    @vgdisplay = `/usr/sbin/vgdisplay -vF | grep "^pv_name"`;
+    @vgdisplay = `/usr/sbin/vgdisplay -vF 2>/dev/null | grep "^pv_name"`;
 }
 die "failed to execute: $!" if ($?);
 
@@ -88,7 +88,7 @@ foreach my $pvol (@vgdisplay) {
         
     my $pv_name = (split (/=/, (split (/:/, $pvol))[0]))[1];
 
-    @pvdisplay = `/usr/sbin/pvdisplay -F ${pv_name}`;
+    @pvdisplay = `/usr/sbin/pvdisplay -F ${pv_name} 2>/dev/null`;
     die "failed to execute: $!" if ($?);
     
     # loop over pvdisplay
@@ -182,3 +182,4 @@ S<       >Show physical volume size in MB or GB (default is GB).
 =head1 history
 
 @(#) 2016-04-12: VRF 1.0.0: first version [Patrick Van der Veken]
+@(#) 2016-04-27: VRF 1.0.1: small fixes [Patrick Van der Veken]

@@ -72,14 +72,14 @@ unless ($options{'size'}) {
 };
 
 # print header
-printf STDOUT ("\n%-30s %-12s %-17s %-6s %-10s %-7s %-8s %-8s\n", 
+printf STDOUT ("\n%-30s %-12s %-17s %-7s %-17s %-7s %-8s %-8s\n", 
         "LV", "VG", "Status", "Size", "Permissions", "Mirrors", "Stripes", "Allocation");
 
 # fetch LVOLs
 if ($options{'vg'}) {
-    @vgdisplay = `/usr/sbin/vgdisplay -vF ${options{'vg'}} | grep "^lv_name"`;
+    @vgdisplay = `/usr/sbin/vgdisplay -vF ${options{'vg'}} 2>/dev/null | grep "^lv_name"`;
 } else {
-    @vgdisplay = `/usr/sbin/vgdisplay -vF | grep "^lv_name"`;
+    @vgdisplay = `/usr/sbin/vgdisplay -vF 2>/dev/null | grep "^lv_name"`;
 }
 die "failed to execute: $!" if ($?);
 
@@ -88,7 +88,7 @@ foreach my $lvol (@vgdisplay) {
         
     my $lv_name = (split (/=/, (split (/:/, $lvol))[0]))[1];
 
-    @lvdisplay = `/usr/sbin/lvdisplay -F ${lv_name}`;
+    @lvdisplay = `/usr/sbin/lvdisplay -F ${lv_name} 2>/dev/null`;
     die "failed to execute: $!" if ($?);
     
     # loop over lvdisplay
@@ -113,7 +113,7 @@ foreach my $lvol (@vgdisplay) {
         # convert to GB if needed
         $lv_size /= 1024 unless ($options{'size'} =~ /MB/i);
         # report data
-        printf STDOUT ("%-30s %-12s %-17s %-7d %-17s %-7s %-2s %-5s\n",
+        printf STDOUT ("%-30s %-12s %-17s %-7d %-17s %-7s %-8s %-8s\n",
                 ${lv_name},
                 ${vg_name},
                 ${lv_status},
@@ -178,3 +178,4 @@ S<       >Show logical volume size in MB or GB (default is GB).
 =head1 history
 
 @(#) 2016-04-12: VRF 1.0.0: first version [Patrick Van der Veken]
+@(#) 2016-04-27: VRF 1.0.1: small fixes [Patrick Van der Veken]

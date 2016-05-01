@@ -31,6 +31,7 @@ use warnings;
 use POSIX qw(uname);
 use Getopt::Long;
 use Pod::Usage;
+use Data::Dumper;
 $|++;
 
 
@@ -72,14 +73,14 @@ unless ($options{'size'}) {
 };
 
 # print header
-printf STDOUT ("\n%-10s %-5s %-5s %-20s %-8s %-8s %-10s %-10s %-10s\n", 
-        "VG", "PVs", "LVs", "Status", "Version", "PE Size", "VG Size", "VG Free", "VG Max");
+printf STDOUT ("\n%-15s %-5s %-5s %-20s %-8s %-8s %-10s %-10s %-10s %-12s\n", 
+        "VG", "PVs", "LVs", "Status", "Version", "PE Size", "VG Size", "VG Free", "VG Max", "VG Major/Minor");
 
 # fetch vgdisplay
 if ($options{'vg'}) {
-    @vgdisplay = `/usr/sbin/vgdisplay -F ${options{'vg'}}`;
+    @vgdisplay = `/usr/sbin/vgdisplay -F ${options{'vg'}} 2>/dev/null`;
 } else {
-    @vgdisplay = `/usr/sbin/vgdisplay -F`;
+    @vgdisplay = `/usr/sbin/vgdisplay -F 2>/dev/null`;
 }
 die "failed to execute: $!" if ($?);
 
@@ -87,7 +88,7 @@ die "failed to execute: $!" if ($?);
 # loop over vgdisplay
 foreach my $vg_entry (@vgdisplay) {
  
-    my ($vg_name, $vg_status, $vg_version)= ("","","n/a");
+    my ($vg_name, $vg_status, $vg_version, $lsvg, $vg_major, $vg_minor,) = ("","","n/a","","n/a","n/a");
     my ($vg_total_pe, $vg_size_pe, $vg_free_pe, $vg_cur_pvs, $vg_cur_lvs, $vg_max_pe) = (0,0,0,0,0,0);
     my ($vg_size, $vg_free, $vg_max) = (0,0,0);
     
@@ -106,7 +107,7 @@ foreach my $vg_entry (@vgdisplay) {
             $vg_cur_pvs  = $1 if ($vg_field =~ m%^cur_pv=(.*)%);
             $vg_cur_lvs  = $1 if ($vg_field =~ m%^cur_lv=(.*)%);
             $vg_version  = $1 if ($vg_field =~ m%^vg_version=(.*)%);
-            $vg_max_pe   = $1 if ($vg_field =~ m%^vg_max_extents=(.*)%);        
+            $vg_max_pe   = $1 if ($vg_field =~ m%^vg_max_extents=(.*)%);
         }
     }
     # calculate sizes
@@ -118,9 +119,15 @@ foreach my $vg_entry (@vgdisplay) {
         $vg_max = $vg_max_pe * $vg_size_pe;
         $vg_max /= 1024 unless ($options{'size'} =~ /MB/i); 
     }
+    # get minor number
+    $lsvg = `/usr/bin/ls -l /dev/${vg_name}/group 2>/dev/null`;
+    unless ($?) { 
+        $vg_major = (split (/\s+/, $lsvg))[4]; 
+        $vg_minor = (split (/\s+/, $lsvg))[5];
+    }
     
     # report data
-    printf STDOUT ("%-10s %-5s %-5s %-20s %-8s %-8d %-10d %-10d %-10d\n",
+    printf STDOUT ("%-15s %-5s %-5s %-20s %-8s %-8d %-10d %-10d %-10d %3s/%-8s\n",
                 ${vg_name},
                 ${vg_cur_pvs},
                 ${vg_cur_lvs},
@@ -129,7 +136,9 @@ foreach my $vg_entry (@vgdisplay) {
                 ${vg_size_pe},
                 ${vg_size},
                 ${vg_free},
-                ${vg_max})
+                ${vg_max},
+                ${vg_major},
+                ${vg_minor})
 }
 
 # footer
@@ -186,3 +195,4 @@ S<       >Show volume group sizes in MB or GB (default is GB).
 =head1 history
 
 @(#) 2016-04-12: VRF 1.0.0: first version [Patrick Van der Veken]
+@(#) 2016-04-27: VRF 1.0.1: added 'VG Major/Minor' [Patrick Van der Veken]

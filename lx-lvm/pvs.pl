@@ -40,7 +40,78 @@ $|++;
 
 my ($os, $version, $footer);
 my %options;
-my (@vgdisplay, @pvdisplay);
+my (@pvol, @vgdisplay);
+
+
+#******************************************************************************
+# SUBroutines
+#******************************************************************************
+
+sub parse_pvols {
+
+    my @pvol = @_;
+	my @pvdisplay;
+
+	unless (@pvol) {
+		print "-- no disks found --\n";
+		return;
+	}
+	
+	foreach my $pvol (@pvol) {
+
+		my $pv_lvm = 1;
+	
+		chomp ($pvol);
+	
+		@pvdisplay = `/usr/sbin/pvdisplay -F /dev/disk/${pvol} 2>&1`;
+		$pv_lvm = 0 if ($?) and (grep (/cannot display physical volume/i, @pvdisplay));
+    
+		# loop over pvdisplay
+		if ($pv_lvm) {
+    
+			foreach my $pv_entry (@pvdisplay) {
+        
+				my ($vg_name, $pv_status)= ("","");
+				my ($pv_total_pe, $pv_size_pe, $pv_free_pe, $pv_stale_pe) = (0,0,0,0);
+				my ($pv_size, $pv_free) = (0,0);
+    
+				my @pv_data = split (/:/, $pv_entry);
+
+				# loop over PVOL data
+				foreach my $pv_field (@pv_data) {
+
+					$vg_name     = $1 if ($pv_field =~ m%^vg_name=/dev/(.*)%);
+					$pv_status   = $1 if ($pv_field =~ m%^pv_status=(.*)%);
+					$pv_total_pe = $1 if ($pv_field =~ m%^total_pe=(.*)%);
+					$pv_size_pe  = $1 if ($pv_field =~ m%^pe_size=(.*)%);
+					$pv_free_pe  = $1 if ($pv_field =~ m%^free_pe=(.*)%);
+					$pv_stale_pe = $1 if ($pv_field =~ m%^stale_pe=(.*)%);
+				}
+				# calculate sizes
+				$pv_size = $pv_total_pe * $pv_size_pe;
+				$pv_size /= 1024 unless ($options{'size'} =~ /MB/i);            
+				$pv_free = $pv_free_pe * $pv_size_pe;
+				$pv_free /= 1024 unless ($options{'size'} =~ /MB/i);
+
+				# report data
+				printf STDOUT ("%-20s %-12s %-15s %-7d %-8d %-8d %-8d\n",
+					"/dev/disk/${pvol}",
+					${vg_name},
+					${pv_status},
+					${pv_size_pe},
+					${pv_size},
+					${pv_free},
+					${pv_stale_pe})
+			}
+		} else {
+			unless ($options{'active'}) {
+				printf STDOUT ("%-20s %-12s %-15s\n", "/dev/disk/${pvol}",
+					"n/a",
+					"not active/not LVM");
+			}
+		}
+	}
+}
 
 
 #******************************************************************************
@@ -60,6 +131,7 @@ if ( @ARGV > 0 ) {
                 help|h|?
                 size|s=s
                 vg|g=s
+				active|a
             ));
 }
 # check options
@@ -72,66 +144,30 @@ unless ($options{'size'}) {
 };
 
 # print header
-printf STDOUT ("\n%-20s %-10s %-15s %-7s %-8s %-8s %-8s\n", 
+printf STDOUT ("\n%-20s %-12s %-15s %-7s %-8s %-8s %-8s\n", 
         "PV", "VG", "Status", "PE Size", "PV Size", "PV Free", "Stale PE");
 
-# fetch LVOLs
+# fetch PVOLs (non-boot)
 if ($options{'vg'}) {
-    @vgdisplay = `/usr/sbin/vgdisplay -vF ${options{'vg'}} 2>/dev/null | grep "^pv_name"`;
+    @pvol = `/usr/sbin/vgdisplay -vF "/dev/${options{'vg'}}" 2>/dev/null | grep "^pv_name"  | cut -f1 -d':' | cut -f2 -d'=' | cut -f4 -d '/'`;
+	die "failed to execute: $!" if ($?);
+	parse_pvols (@pvol);
 } else {
-    @vgdisplay = `/usr/sbin/vgdisplay -vF 2>/dev/null | grep "^pv_name"`;
-}
-die "failed to execute: $!" if ($?);
-
-# loop over PVOLs
-foreach my $pvol (@vgdisplay) {
-        
-    my $pv_name = (split (/=/, (split (/:/, $pvol))[0]))[1];
-
-    @pvdisplay = `/usr/sbin/pvdisplay -F ${pv_name} 2>/dev/null`;
-    die "failed to execute: $!" if ($?);
-    
-    # loop over pvdisplay
-    foreach my $pv_entry (@pvdisplay) {
-        
-        my ($vg_name, $pv_status)= ("","");
-        my ($pv_total_pe, $pv_size_pe, $pv_free_pe, $pv_stale_pe) = (0,0,0,0);
-        my ($pv_size, $pv_free) = (0,0);
-    
-        my @pv_data = split (/:/, $pv_entry);
-
-        # loop over PVOL data
-        foreach my $pv_field (@pv_data) {
-
-            $vg_name     = $1 if ($pv_field =~ m%^vg_name=/dev/(.*)%);
-            $pv_status   = $1 if ($pv_field =~ m%^pv_status=(.*)%);
-            $pv_total_pe = $1 if ($pv_field =~ m%^total_pe=(.*)%);
-            $pv_size_pe  = $1 if ($pv_field =~ m%^pe_size=(.*)%);
-            $pv_free_pe  = $1 if ($pv_field =~ m%^free_pe=(.*)%);
-            $pv_stale_pe = $1 if ($pv_field =~ m%^stale_pe=(.*)%);
-        }
-        # calculate sizes
-        $pv_size = $pv_total_pe * $pv_size_pe;
-        $pv_size /= 1024 unless ($options{'size'} =~ /MB/i);            
-        $pv_free = $pv_free_pe * $pv_size_pe;
-        $pv_free /= 1024 unless ($options{'size'} =~ /MB/i);
-
-        # report data
-        printf STDOUT ("%-20s %-10s %-15s %-7d %-8d %-8d %-8d\n",
-                ${pv_name},
-                ${vg_name},
-                ${pv_status},
-                ${pv_size_pe},
-                ${pv_size},
-                ${pv_free},
-                ${pv_stale_pe})
-    }
+    @pvol = `/usr/sbin/ioscan -kFN -C disk 2>/dev/null | cut -f9,13 -d':' | tr -d ':'`; 
+	die "failed to execute: $!" if ($?);
+	parse_pvols (@pvol);
+	
+	# fetch PVOLs (boot)
+	print "\n-- Boot disk(s):\n";
+	@pvol = `/usr/sbin/lvlnboot -v 2>/dev/null | grep 'Boot Disk' | awk '{ print \$1 }' | cut -f4 -d '/'`;
+	die "failed to execute: $!" if ($?);
+	parse_pvols (@pvol);
 }
 
 # footer
 $footer = qq{
 Note 1: 'PE Size' values are expressed in MB
-Note 2: 'PV Size' & 'PV FRee' values are expressed in GB by default (see --help)
+Note 2: 'PV Size' & 'PV Free' values are expressed in GB by default (see --help)
 Note 3: more detailed information can be obtained by running the pvdisplay(1M), vgdisplay(1M), lvdisplay(1M) commands
 
 };
@@ -158,6 +194,7 @@ pvs.pl - Show physical volume information in a terse way (Linux style).
     pvs.pl [-h|--help] 
            [(-g|--vg)=<vg_name>]
            [(-s|--size)=<MB|GB>]
+		   [(-a|--active)]
 
 =head1 OPTIONS
 
@@ -167,9 +204,13 @@ pvs.pl - Show physical volume information in a terse way (Linux style).
 
 S<       >Show the help page.
 
+=item -a | --active
+
+S<       >Hide non-active and non-LVM disks
+
 =item -g | --vg
 
-S<       >Display physical volumes for a specific volume group.
+S<       >Display physical volumes for a specific volume group. Volume group name should be specified without the "/dev/" prefix
 
 =item -s | --size
 
@@ -183,3 +224,4 @@ S<       >Show physical volume size in MB or GB (default is GB).
 
 @(#) 2016-04-12: VRF 1.0.0: first version [Patrick Van der Veken]
 @(#) 2016-04-27: VRF 1.0.1: small fixes [Patrick Van der Veken]
+@(#) 2016-04-27: VRF 1.1.0: show all PVOLs & option --active added [Patrick Van der Veken]

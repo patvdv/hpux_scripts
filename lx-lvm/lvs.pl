@@ -72,8 +72,8 @@ unless ($options{'size'}) {
 };
 
 # print header
-printf STDOUT ("\n%-30s %-12s %-17s %-7s %-17s %-7s %-8s %-8s\n", 
-        "LV", "VG", "Status", "Size", "Permissions", "Mirrors", "Stripes", "Allocation");
+printf STDOUT ("\n%-30s %-12s %-17s %-7s %-7s %-17s %-7s %-8s %-8s\n", 
+        "LV", "VG", "Status", "Size", "Extents", "Permissions", "Mirrors", "Stripes", "Allocation");
 
 # fetch LVOLs
 if ($options{'vg'}) {
@@ -95,7 +95,7 @@ foreach my $lvol (@vgdisplay) {
     foreach my $lv_entry (@lvdisplay) {
         
         my ($vg_name, $lv_status, $lv_perm, $lv_alloc) = ("","","","");
-        my ($lv_mirrors, $lv_stripes, $lv_size) = (0,0,0);
+        my ($lv_mirrors, $lv_stripes, $lv_size, $lv_extent) = (0,0,0,0);
         
         my @lv_data = split (/:/, $lv_entry);
 
@@ -109,15 +109,17 @@ foreach my $lvol (@vgdisplay) {
             $lv_stripes = $1 if ($lv_field =~ m%^stripes=(.*)%);
             $lv_alloc   = $1 if ($lv_field =~ m%^allocation=(.*)%);
             $lv_size    = $1 if ($lv_field =~ m%^lv_size=(.*)%);
+            $lv_extent  = $1 if ($lv_field =~ m%^current_le=(.*)%);
         }
         # convert to GB if needed
         $lv_size /= 1024 unless ($options{'size'} =~ /MB/i);
         # report data
-        printf STDOUT ("%-30s %-12s %-17s %-7d %-17s %-7s %-8s %-8s\n",
+        printf STDOUT ("%-30s %-12s %-17s %-7d %-7d %-17s %-7s %-8s %-8s\n",
                 ${lv_name},
                 ${vg_name},
                 ${lv_status},
                 ${lv_size},
+                ${lv_extent},
                 ${lv_perm},
                 ${lv_mirrors},
                 ${lv_stripes},
@@ -179,3 +181,4 @@ S<       >Show logical volume size in MB or GB (default is GB).
 
 @(#) 2016-04-12: VRF 1.0.0: first version [Patrick Van der Veken]
 @(#) 2016-04-27: VRF 1.0.1: small fixes [Patrick Van der Veken]
+@(#) 2016-06-27: VRF 1.0.2: added lv extents [Patrick Van der Veken]

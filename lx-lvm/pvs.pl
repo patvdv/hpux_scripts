@@ -264,7 +264,7 @@ Note 1: 'PE Size' values are expressed in MB
 Note 2: 'PV Size' & 'PV Free' values are expressed in GB by default (see --help)
 Note 3: cDSF: only the first cluster-wide device is shown in case of multiples. The number of cDSF is displayed in
         parentheses following the cDSF name.
-Note 3: more detailed information can be obtained by running the pvdisplay(1M), vgdisplay(1M), lvdisplay(1M) commands
+Note 4: more detailed information can be obtained by running the pvdisplay(1M), vgdisplay(1M), lvdisplay(1M) commands
 
 };
 

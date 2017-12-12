@@ -42,6 +42,7 @@ $|++;
 my ($os, $version, $footer);
 my %options;
 my @vgdisplay;
+my $vg_str_size=15;
 
 
 #******************************************************************************
@@ -61,6 +62,8 @@ if ( @ARGV > 0 ) {
                 help|h|?
                 size|s=s
                 vg|g=s
+                active|a
+                terse|t
             ));
 }
 # check options
@@ -71,10 +74,14 @@ if ($options{'help'}) {
 unless ($options{'size'}) {
     $options{'size'} = 'GB';
 };
-
-# print header
-printf STDOUT ("\n%-15s %-5s %-5s %-20s %-8s %-8s %-10s %-10s %-10s %-12s\n", 
-        "VG", "PVs", "LVs", "Status", "Version", "PE Size", "VG Size", "VG Free", "VG Max", "VG Major/Minor");
+if ($options{'vg'}) {
+    if ($options{'vg'} =~ m#/dev#) {
+        print STDERR "ERROR: do not specify your VG with '/dev/...'. Only use the short VG name\n\n";
+        exit (0);
+    }
+    # force --active off
+    delete $options{'active'};
+};
 
 # fetch vgdisplay
 if ($options{'vg'}) {
@@ -82,11 +89,29 @@ if ($options{'vg'}) {
 } else {
     @vgdisplay = `/usr/sbin/vgdisplay -F 2>/dev/null`;
 }
-die "failed to execute: $!" if ($?);
+die "ERROR: could not retrieve VG info for $options{'vg'}" if ($?);
 
-
-# loop over vgdisplay
+# find max display size for VG name
 foreach my $vg_entry (@vgdisplay) {
+
+    my @vg_data = split (/:/, $vg_entry);
+    my $str_size = 0;
+    
+    # loop over VG data
+    foreach my $vg_field (@vg_data) {
+        $str_size = length ($1) if ($vg_field =~ m%^vg_name=/dev/(.*)%);
+        $vg_str_size = $str_size if ($str_size > $vg_str_size); 
+    }
+}
+
+# print header
+unless ($options{'terse'}) {
+    printf STDOUT ("\n%-${vg_str_size}s %-5s %-5s %-20s %-8s %-8s %-10s %-10s %-10s %-12s\n", 
+        "VG", "PVs", "LVs", "Status", "Version", "PE Size", "VG Size", "VG Free", "VG Max", "VG Major/Minor");
+}
+
+# loop over vgdisplay (ASCII sorted)
+foreach my $vg_entry (sort (@vgdisplay)) {
  
     my ($vg_name, $vg_status, $vg_version, $lsvg, $vg_major, $vg_minor,) = ("","","n/a","","n/a","n/a");
     my ($vg_total_pe, $vg_size_pe, $vg_free_pe, $vg_cur_pvs, $vg_cur_lvs, $vg_max_pe) = (0,0,0,0,0,0);
@@ -127,28 +152,33 @@ foreach my $vg_entry (@vgdisplay) {
     }
     
     # report data
-    printf STDOUT ("%-15s %-5s %-5s %-20s %-8s %-8d %-10d %-10d %-10d %3s/%-8s\n",
-                ${vg_name},
-                ${vg_cur_pvs},
-                ${vg_cur_lvs},
-                ${vg_status},
-                ${vg_version},
-                ${vg_size_pe},
-                ${vg_size},
-                ${vg_free},
-                ${vg_max},
-                ${vg_major},
-                ${vg_minor})
+    unless ($options{'active'} and ($vg_status eq "deactivated")) {
+        printf STDOUT ("%-${vg_str_size}s %-5s %-5s %-20s %-8s %-8d %-10d %-10d %-10d %3s/%-8s\n",
+                $vg_name,
+                $vg_cur_pvs,
+                $vg_cur_lvs,
+                $vg_status,
+                $vg_version,
+                $vg_size_pe,
+                $vg_size,
+                $vg_free,
+                $vg_max,
+                $vg_major,
+                $vg_minor)
+        }
 }
 
 # footer
-$footer = qq{
+unless ($options{'terse'}) {
+
+    $footer = qq{
 Note 1: 'PE Size' values are expressed in MB
 Note 2: 'VG Size', 'VG Free', 'VG Max' values are expressed in GB by default (see --help)
 Note 3: more detailed information can be obtained by running the pvdisplay(1M), vgdisplay(1M), lvdisplay(1M) commands
 
 };
-print STDOUT $footer;
+    print STDOUT $footer;
+};
 
 exit (0);
 
@@ -171,6 +201,8 @@ vgs.pl - Show volume group information in a terse way (Linux style).
     vgs.pl [-h|--help] 
            [(-g|--vg)=<vg_name>]
            [(-s|--size)=<MB|GB>]
+           [(-a|--active)]
+           [(-t|--terse)]
 
 =head1 OPTIONS
 
@@ -180,6 +212,10 @@ vgs.pl - Show volume group information in a terse way (Linux style).
 
 S<       >Show the help page.
 
+=item -a | --active
+
+S<       >Hide non-active VGs. Cannot be used in conjunction with --vg.
+
 =item -g | --vg
 
 S<       >Display information for a specific volume group.
@@ -188,11 +224,16 @@ S<       >Display information for a specific volume group.
 
 S<       >Show volume group sizes in MB or GB (default is GB).
 
+=item -t | --terse
+
+S<       >Do not show header and footer information.
+
 =head1 AUTHOR
 
 (c) KUDOS BVBA - Patrick Van der Veken
 
 =head1 history
 
-@(#) 2016-04-12: VRF 1.0.0: first version [Patrick Van der Veken]
-@(#) 2016-04-27: VRF 1.0.1: added 'VG Major/Minor' [Patrick Van der Veken]
+ @(#) 2016-04-12: first version [Patrick Van der Veken]
+ @(#) 2016-04-27: added 'VG Major/Minor' [Patrick Van der Veken]
+ @(#) 2017-12-12: made VG name display size dynamic, added --active, added --terse [Patrick Van der Veken]

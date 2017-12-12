@@ -41,6 +41,8 @@ $|++;
 my ($os, $version, $footer);
 my %options;
 my (@vgdisplay, @lvdisplay);
+my $lv_str_size=25;
+my $vg_str_size=15;
 
 
 #******************************************************************************
@@ -60,6 +62,7 @@ if ( @ARGV > 0 ) {
                 help|h|?
                 size|s=s
                 vg|g=s
+                terse|t
             ));
 }
 # check options
@@ -70,10 +73,12 @@ if ($options{'help'}) {
 unless ($options{'size'}) {
     $options{'size'} = 'GB';
 };
-
-# print header
-printf STDOUT ("\n%-30s %-12s %-17s %-7s %-7s %-17s %-7s %-8s %-8s\n", 
-        "LV", "VG", "Status", "Size", "Extents", "Permissions", "Mirrors", "Stripes", "Allocation");
+if ($options{'vg'}) {
+    if ($options{'vg'} =~ m#/dev#) {
+        print STDERR "ERROR: do not specify your VG with '/dev/...'. Only use the short VG name\n\n";
+        exit (0);
+    }
+};
 
 # fetch LVOLs
 if ($options{'vg'}) {
@@ -81,10 +86,31 @@ if ($options{'vg'}) {
 } else {
     @vgdisplay = `/usr/sbin/vgdisplay -vF 2>/dev/null | grep "^lv_name"`;
 }
-die "failed to execute: $!" if ($?);
+die "ERROR: could not retrieve VG info for $options{'vg'}" if ($?);
 
-# loop over LVOLs
-foreach my $lvol (@vgdisplay) {
+# find max display size for LV & VG names
+@lvdisplay = `ls -1 /dev/vg*/l* 2>/dev/null`;
+foreach my $lv_entry (@lvdisplay) {
+    
+    my $str_size = 0; my @vg_entry;
+
+    $str_size = length ($lv_entry);
+    $lv_str_size = $str_size if ($str_size > $lv_str_size); 
+
+    @vg_entry = split ('/', $lv_entry);
+    $str_size = length ($vg_entry[2]);
+    $vg_str_size = $str_size if ($str_size > $vg_str_size); 
+}
+
+# print header
+unless ($options{'terse'}) {
+
+    printf STDOUT ("\n%-${lv_str_size}s %-${vg_str_size}s %-17s %-7s %-7s %-17s %-7s %-8s %-8s\n", 
+        "LV", "VG", "Status", "Size", "Extents", "Permissions", "Mirrors", "Stripes", "Allocation");
+}
+
+# loop over LVOLs (ASCII sorted)
+foreach my $lvol (sort (@vgdisplay)) {
         
     my $lv_name = (split (/=/, (split (/:/, $lvol))[0]))[1];
 
@@ -114,26 +140,29 @@ foreach my $lvol (@vgdisplay) {
         # convert to GB if needed
         $lv_size /= 1024 unless ($options{'size'} =~ /MB/i);
         # report data
-        printf STDOUT ("%-30s %-12s %-17s %-7d %-7d %-17s %-7s %-8s %-8s\n",
-                ${lv_name},
-                ${vg_name},
-                ${lv_status},
-                ${lv_size},
-                ${lv_extent},
-                ${lv_perm},
-                ${lv_mirrors},
-                ${lv_stripes},
-                ${lv_alloc})
+        printf STDOUT ("%-${lv_str_size}s %-${vg_str_size}s %-17s %-7d %-7d %-17s %-7s %-8s %-8s\n",
+                $lv_name,
+                $vg_name,
+                $lv_status,
+                $lv_size,
+                $lv_extent,
+                $lv_perm,
+                $lv_mirrors,
+                $lv_stripes,
+                $lv_alloc)
     }
 }
 
 # footer
-$footer = qq{
+unless ($options{'terse'}) {
+
+    $footer = qq{
 Note 1: 'Size' values are expressed in GB by default (see --help)
 Note 2: more detailed information can be obtained by running the pvdisplay(1M), vgdisplay(1M), lvdisplay(1M) commands
 
 };
-print STDOUT $footer;
+    print STDOUT $footer;
+}
 
 exit (0);
 
@@ -156,6 +185,7 @@ lvs.pl - Show logical volume information in a terse way (Linux style).
     lvs.pl [-h|--help] 
            [(-g|--vg)=<vg_name>]
            [(-s|--size)=<MB|GB>]
+           [(-t|--terse)]
 
 =head1 OPTIONS
 
@@ -173,12 +203,17 @@ S<       >Display logical volumes for a specific volume group.
 
 S<       >Show logical volume size in MB or GB (default is GB).
 
+=item -t | --terse
+
+S<       >Do not show header and footer information.
+
 =head1 AUTHOR
 
 (c) KUDOS BVBA - Patrick Van der Veken
 
 =head1 history
 
-@(#) 2016-04-12: VRF 1.0.0: first version [Patrick Van der Veken]
-@(#) 2016-04-27: VRF 1.0.1: small fixes [Patrick Van der Veken]
-@(#) 2016-06-27: VRF 1.0.2: added lv extents [Patrick Van der Veken]
+ @(#) 2016-04-12: first version [Patrick Van der Veken]
+ @(#) 2016-04-27: small fixes [Patrick Van der Veken]
+ @(#) 2016-06-27: added LV extents [Patrick Van der Veken]
+ @(#) 2017-12-12: made LV+VG names display size dynamic, added --terse [Patrick Van der Veken]

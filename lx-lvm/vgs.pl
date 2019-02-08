@@ -14,7 +14,7 @@
 # FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details
 #******************************************************************************
 # This script will display HP-UX LVM information in Linux style
-# 
+#
 # Based on https://jreypo.wordpress.com/2010/02/16/linux-lvm-commands-in-hp-ux/
 #
 # @(#) HISTORY: see perldoc 'vgs.pl'
@@ -75,10 +75,7 @@ unless ($options{'size'}) {
     $options{'size'} = 'GB';
 };
 if ($options{'vg'}) {
-    if ($options{'vg'} =~ m#/dev#) {
-        print STDERR "ERROR: do not specify your VG with '/dev/...'. Only use the short VG name\n\n";
-        exit (0);
-    }
+    $options{'vg'} =~ s#/dev/##;
     # force --active off
     delete $options{'active'};
 };
@@ -96,32 +93,32 @@ foreach my $vg_entry (@vgdisplay) {
 
     my @vg_data = split (/:/, $vg_entry);
     my $str_size = 0;
-    
+
     # loop over VG data
     foreach my $vg_field (@vg_data) {
         $str_size = length ($1) if ($vg_field =~ m%^vg_name=/dev/(.*)%);
-        $vg_str_size = $str_size if ($str_size > $vg_str_size); 
+        $vg_str_size = $str_size if ($str_size > $vg_str_size);
     }
 }
 
 # print header
 unless ($options{'terse'}) {
-    printf STDOUT ("\n%-${vg_str_size}s %-5s %-5s %-20s %-8s %-8s %-10s %-10s %-10s %-12s\n", 
+    printf STDOUT ("\n%-${vg_str_size}s %-5s %-5s %-20s %-8s %-8s %-10s %-10s %-10s %-12s\n",
         "VG", "PVs", "LVs", "Status", "Version", "PE Size", "VG Size", "VG Free", "VG Max", "VG Major/Minor");
 }
 
 # loop over vgdisplay (ASCII sorted)
 foreach my $vg_entry (sort (@vgdisplay)) {
- 
+
     my ($vg_name, $vg_status, $vg_version, $lsvg, $vg_major, $vg_minor,) = ("","","n/a","","n/a","n/a");
     my ($vg_total_pe, $vg_size_pe, $vg_free_pe, $vg_cur_pvs, $vg_cur_lvs, $vg_max_pe) = (0,0,0,0,0,0);
     my ($vg_size, $vg_free, $vg_max) = (0,0,0);
-    
+
     my @vg_data = split (/:/, $vg_entry);
-    
+
     # loop over VG data
     foreach my $vg_field (@vg_data) {
-    
+
         $vg_name   = $1 if ($vg_field =~ m%^vg_name=/dev/(.*)%);
         $vg_status = $1 if ($vg_field =~ m%^vg_status=(.*)%);
 
@@ -138,19 +135,19 @@ foreach my $vg_entry (sort (@vgdisplay)) {
     # calculate sizes
     unless ($vg_status eq "deactivated") {
         $vg_size = $vg_total_pe * $vg_size_pe;
-        $vg_size /= 1024 unless ($options{'size'} =~ /MB/i);            
+        $vg_size /= 1024 unless ($options{'size'} =~ /MB/i);
         $vg_free = $vg_free_pe * $vg_size_pe;
         $vg_free /= 1024 unless ($options{'size'} =~ /MB/i);
         $vg_max = $vg_max_pe * $vg_size_pe;
-        $vg_max /= 1024 unless ($options{'size'} =~ /MB/i); 
+        $vg_max /= 1024 unless ($options{'size'} =~ /MB/i);
     }
     # get minor number
     $lsvg = `/usr/bin/ls -l /dev/${vg_name}/group 2>/dev/null`;
-    unless ($?) { 
-        $vg_major = (split (/\s+/, $lsvg))[4]; 
+    unless ($?) {
+        $vg_major = (split (/\s+/, $lsvg))[4];
         $vg_minor = (split (/\s+/, $lsvg))[5];
     }
-    
+
     # report data
     unless ($options{'active'} and ($vg_status eq "deactivated")) {
         printf STDOUT ("%-${vg_str_size}s %-5s %-5s %-20s %-8s %-8d %-10d %-10d %-10d %3s/%-8s\n",
@@ -198,7 +195,7 @@ vgs.pl - Show volume group information in a terse way (Linux style).
 
 =head1 SYNOPSIS
 
-    vgs.pl [-h|--help] 
+    vgs.pl [-h|--help]
            [(-g|--vg)=<vg_name>]
            [(-s|--size)=<MB|GB>]
            [(-a|--active)]
@@ -237,3 +234,4 @@ S<       >Do not show header and footer information.
  @(#) 2016-04-12: first version [Patrick Van der Veken]
  @(#) 2016-04-27: added 'VG Major/Minor' [Patrick Van der Veken]
  @(#) 2017-12-12: made VG name display size dynamic, added --active, added --terse [Patrick Van der Veken]
+ @(#) 2019-02-08: remove /dev/ prefix for VG [Patrick Van der Veken]

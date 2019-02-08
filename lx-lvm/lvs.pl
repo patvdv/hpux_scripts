@@ -14,7 +14,7 @@
 # FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details
 #******************************************************************************
 # This script will display HP-UX LVM information in Linux style
-# 
+#
 # Based on https://jreypo.wordpress.com/2010/02/16/linux-lvm-commands-in-hp-ux/
 #
 # @(#) HISTORY: see perldoc 'lvs.pl'
@@ -74,10 +74,7 @@ unless ($options{'size'}) {
     $options{'size'} = 'GB';
 };
 if ($options{'vg'}) {
-    if ($options{'vg'} =~ m#/dev#) {
-        print STDERR "ERROR: do not specify your VG with '/dev/...'. Only use the short VG name\n\n";
-        exit (0);
-    }
+    $options{'vg'} =~ s#/dev/##;
 };
 
 # fetch LVOLs
@@ -91,38 +88,38 @@ die "ERROR: could not retrieve VG info for $options{'vg'}" if ($?);
 # find max display size for LV & VG names
 @lvdisplay = `ls -1 /dev/vg*/l* 2>/dev/null`;
 foreach my $lv_entry (@lvdisplay) {
-    
+
     my $str_size = 0; my @vg_entry;
 
     $str_size = length ($lv_entry);
-    $lv_str_size = $str_size if ($str_size > $lv_str_size); 
+    $lv_str_size = $str_size if ($str_size > $lv_str_size);
 
     @vg_entry = split ('/', $lv_entry);
     $str_size = length ($vg_entry[2]);
-    $vg_str_size = $str_size if ($str_size > $vg_str_size); 
+    $vg_str_size = $str_size if ($str_size > $vg_str_size);
 }
 
 # print header
 unless ($options{'terse'}) {
 
-    printf STDOUT ("\n%-${lv_str_size}s %-${vg_str_size}s %-17s %-7s %-7s %-17s %-7s %-8s %-8s\n", 
+    printf STDOUT ("\n%-${lv_str_size}s %-${vg_str_size}s %-17s %-7s %-7s %-17s %-7s %-8s %-8s\n",
         "LV", "VG", "Status", "Size", "Extents", "Permissions", "Mirrors", "Stripes", "Allocation");
 }
 
 # loop over LVOLs (ASCII sorted)
 foreach my $lvol (sort (@vgdisplay)) {
-        
+
     my $lv_name = (split (/=/, (split (/:/, $lvol))[0]))[1];
 
     @lvdisplay = `/usr/sbin/lvdisplay -F ${lv_name} 2>/dev/null`;
     die "failed to execute: $!" if ($?);
-    
+
     # loop over lvdisplay
     foreach my $lv_entry (@lvdisplay) {
-        
+
         my ($vg_name, $lv_status, $lv_perm, $lv_alloc) = ("","","","");
         my ($lv_mirrors, $lv_stripes, $lv_size, $lv_extent) = (0,0,0,0);
-        
+
         my @lv_data = split (/:/, $lv_entry);
 
         # loop over LVOL data
@@ -182,7 +179,7 @@ lvs.pl - Show logical volume information in a terse way (Linux style).
 
 =head1 SYNOPSIS
 
-    lvs.pl [-h|--help] 
+    lvs.pl [-h|--help]
            [(-g|--vg)=<vg_name>]
            [(-s|--size)=<MB|GB>]
            [(-t|--terse)]
@@ -217,3 +214,4 @@ S<       >Do not show header and footer information.
  @(#) 2016-04-27: small fixes [Patrick Van der Veken]
  @(#) 2016-06-27: added LV extents [Patrick Van der Veken]
  @(#) 2017-12-12: made LV+VG names display size dynamic, added --terse [Patrick Van der Veken]
+ @(#) 2019-02-08: remove /dev/ prefix for VG [Patrick Van der Veken]

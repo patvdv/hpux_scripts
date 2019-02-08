@@ -54,7 +54,7 @@ sub parse_pvols {
     my @pvol = @_;
     my $pv_command;
     my %pvdisplay;
-    my @dsf;
+    my (@dsf,@sorted_dsf,@has_underscore);
 
     unless (@pvol) {
         print "-- no disks found --\n";
@@ -86,7 +86,7 @@ sub parse_pvols {
 
             # set cDSF flag if we found cDSFs
             $is_cdsf = 1 if (@cdsf_data);
-            
+
             # loop over cDSF data
             foreach my $cdsf_data (@cdsf_data) {
 
@@ -108,8 +108,16 @@ sub parse_pvols {
         push (@dsf, $dsf);
     }
 
-    # display pvol data (sorted by their device number: diskYYYY)
-    foreach my $dsf (sort { substr($a, 4) <=> substr($b, 4) } (@dsf)) {
+    # set comparison operator based on dsf type
+    @has_underscore = grep { /_/ } @dsf;
+    if (@has_underscore) {
+        @sorted_dsf = sort { substr($a, 4) cmp substr($b, 4) } (@dsf);
+    } else {
+        @sorted_dsf = sort { substr($a, 4) <=> substr($b, 4) } (@dsf);
+    }
+
+    # display pvol data (sorted by their device number: diskYYYY or diskXXXX_pY)
+    foreach my $dsf (@sorted_dsf) {
 
         chomp ($dsf);
 
@@ -223,10 +231,7 @@ unless ($options{'size'}) {
     $options{'size'} = 'GB';
 };
 if ($options{'vg'}) {
-    if ($options{'vg'} =~ m#/dev#) {
-        print STDERR "ERROR: do not specify your VG with '/dev/...'. Only use the short VG name\n\n";
-        exit (0);
-    }
+    $options{'vg'} =~ s#/dev/##;
     # force --active off
     delete $options{'active'};
 };
@@ -258,7 +263,7 @@ if ($options{'vg'}) {
 
 # footer
 unless ($options{'terse'}) {
-    
+
     $footer = qq{
 Note 1: 'PE Size' values are expressed in MB
 Note 2: 'PV Size' & 'PV Free' values are expressed in GB by default (see --help)
@@ -334,3 +339,4 @@ on the amount of devices present on the system.
  @(#) 2016-04-27: small fixes [Patrick Van der Veken]
  @(#) 2016-04-27: show all PVOLs & option --active added [Patrick Van der Veken]
  @(#) 2017-12-12: added support for cluster disks, added --terse [Patrick Van der Veken]
+ @(#) 2019-02-08: fix for comparison operator + remove /dev/ prefix for VG [Patrick Van der Veken]

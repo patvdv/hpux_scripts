@@ -28,7 +28,7 @@
 
 use strict;
 use warnings;
-use POSIX qw(uname);
+use POSIX qw(uname ceil);
 use Getopt::Long;
 use Pod::Usage;
 $|++;
@@ -136,6 +136,7 @@ foreach my $lvol (sort (@vgdisplay)) {
         }
         # convert to GB if needed
         $lv_size /= 1024 unless ($options{'size'} =~ /MB/i);
+        $lv_size = ceil ($lv_size);
         # report data
         printf STDOUT ("%-${lv_str_size}s %-${vg_str_size}s %-17s %-7d %-7d %-17s %-7s %-8s %-8s\n",
                 $lv_name,
@@ -215,3 +216,4 @@ S<       >Do not show header and footer information.
  @(#) 2016-06-27: added LV extents [Patrick Van der Veken]
  @(#) 2017-12-12: made LV+VG names display size dynamic, added --terse [Patrick Van der Veken]
  @(#) 2019-02-08: remove /dev/ prefix for VG [Patrick Van der Veken]
+ @(#) 2020-03-26: use ceil() to round up to more sensible numbers [Patrick Van der Veken]

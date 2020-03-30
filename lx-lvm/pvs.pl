@@ -28,7 +28,7 @@
 
 use strict;
 use warnings;
-use POSIX qw(uname);
+use POSIX qw(uname ceil);
 use Getopt::Long;
 use Pod::Usage;
 use Data::Dumper;
@@ -156,8 +156,10 @@ sub parse_pvols {
                 # calculate sizes
                 $pv_size = $pv_total_pe * $pv_size_pe;
                 $pv_size /= 1024 unless ($options{'size'} =~ /MB/i);
+                $pv_size = ceil ($pv_size);
                 $pv_free = $pv_free_pe * $pv_size_pe;
                 $pv_free /= 1024 unless ($options{'size'} =~ /MB/i);
+                $pv_free = ceil ($pv_free);
 
                 # report data
                 printf STDOUT ("%-12s %-10s %-4s %-25s %-20s %-7d %-8d %-8d %-8d\n",
@@ -340,3 +342,4 @@ on the amount of devices present on the system.
  @(#) 2016-04-27: show all PVOLs & option --active added [Patrick Van der Veken]
  @(#) 2017-12-12: added support for cluster disks, added --terse [Patrick Van der Veken]
  @(#) 2019-02-08: fix for comparison operator + remove /dev/ prefix for VG [Patrick Van der Veken]
+ @(#) 2020-03-26: use ceil() to round up to more sensible numbers [Patrick Van der Veken]

@@ -28,7 +28,7 @@
 
 use strict;
 use warnings;
-use POSIX qw(uname);
+use POSIX qw(uname ceil);
 use Getopt::Long;
 use Pod::Usage;
 use Data::Dumper;
@@ -136,10 +136,13 @@ foreach my $vg_entry (sort (@vgdisplay)) {
     unless ($vg_status eq "deactivated") {
         $vg_size = $vg_total_pe * $vg_size_pe;
         $vg_size /= 1024 unless ($options{'size'} =~ /MB/i);
+        $vg_size = ceil ($vg_size);
         $vg_free = $vg_free_pe * $vg_size_pe;
         $vg_free /= 1024 unless ($options{'size'} =~ /MB/i);
+        $vg_free = ceil ($vg_free);
         $vg_max = $vg_max_pe * $vg_size_pe;
         $vg_max /= 1024 unless ($options{'size'} =~ /MB/i);
+        $vg_max = ceil ($vg_max);
     }
     # get minor number
     $lsvg = `/usr/bin/ls -l /dev/${vg_name}/group 2>/dev/null`;
@@ -235,3 +238,4 @@ S<       >Do not show header and footer information.
  @(#) 2016-04-27: added 'VG Major/Minor' [Patrick Van der Veken]
  @(#) 2017-12-12: made VG name display size dynamic, added --active, added --terse [Patrick Van der Veken]
  @(#) 2019-02-08: remove /dev/ prefix for VG [Patrick Van der Veken]
+ @(#) 2020-03-26: use ceil() to round up to more sensible numbers [Patrick Van der Veken]

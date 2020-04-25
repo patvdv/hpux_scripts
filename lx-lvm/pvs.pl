@@ -64,7 +64,7 @@ sub parse_pvols {
     # collect DSF/cDSF & pvol info
     foreach my $pvol (@pvol) {
 
-        my (@dsf_data, @cdsf_data);
+        my (@dsf_data, @cdsf_data, @other_dsf);
         my ($dsf, $cdsf, $is_cdsf) = ("","",0);
 
         chomp ($pvol);
@@ -76,9 +76,24 @@ sub parse_pvols {
             # we have the cDSF, get the DSF (should only be 1!)
             @dsf_data = grep (/rcdisk\/${pvol}:/, @cvol);
             ($dsf) = (split (/:/, $dsf_data[0]))[1];
+            chomp ($dsf);
             $dsf =~ s#/dev/rdisk/## if (defined ($dsf));
-            # save the cDSF
-            push (@{$cdsf{$dsf}}, $pvol);
+            if ($dsf eq "") {
+                # workaround for bug in ioscan -FkN -m cluster_dsf but it works without '-F'
+                @other_dsf = `/usr/sbin/ioscan -kn -m cluster_dsf /dev/cdisk/$pvol 2>/dev/null | grep "$pvol" | awk '{print \$2}' | cut -f4 -d'/'`;
+                $dsf = $other_dsf[0];
+                chomp ($dsf);
+                if ($dsf eq "") {
+                    print STDERR "ERROR: unable to find dsf for $pvol\n";
+                    next;
+                } else {
+                    # save the cDSF
+                    push (@{$cdsf{$dsf}}, $pvol);
+                }
+            } else {
+               # save the cDSF
+               push (@{$cdsf{$dsf}}, $pvol);
+            }
         } else {
             # we have the DSF, get the cDSF (could be >1)
             @cdsf_data = grep (/rdisk\/${pvol}:/, @cvol);
@@ -343,3 +358,4 @@ on the amount of devices present on the system.
  @(#) 2017-12-12: added support for cluster disks, added --terse [Patrick Van der Veken]
  @(#) 2019-02-08: fix for comparison operator + remove /dev/ prefix for VG [Patrick Van der Veken]
  @(#) 2020-03-26: use ceil() to round up to more sensible numbers [Patrick Van der Veken]
+ @(#) 2020-04-25: workaround for bug(?) in ioscan + display error when no dsf is found [Patrick Van der Veken]

@@ -139,7 +139,7 @@ sub parse_pvols {
         my ($cdsf, $cdsf_bit) = ("","");
 
         # make cDSF bit
-        if (defined (@{$cdsf{$dsf}})) {
+        if (@{$cdsf{$dsf}}) {
             # display only the first cDSF! (in case of multiples)
             $cdsf = @{$cdsf{$dsf}}[0];
             $cdsf_bit = "(".scalar (@{$cdsf{$dsf}}).")";
@@ -359,3 +359,4 @@ on the amount of devices present on the system.
  @(#) 2019-02-08: fix for comparison operator + remove /dev/ prefix for VG [Patrick Van der Veken]
  @(#) 2020-03-26: use ceil() to round up to more sensible numbers [Patrick Van der Veken]
  @(#) 2020-04-25: workaround for bug(?) in ioscan + display error when no dsf is found [Patrick Van der Veken]
+ @(#) 2020-04-28: fix for array check [Patrick Van der Veken]

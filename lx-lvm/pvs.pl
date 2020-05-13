@@ -145,6 +145,7 @@ sub parse_pvols {
             $cdsf_bit = "(".scalar (@{$cdsf{$dsf}}).")";
         } else {
             $cdsf = "n/a";
+            $cdsf_bit = "(0)";
         }
 
         if (@{$pvdisplay{$dsf}}) {
@@ -360,4 +361,4 @@ on the amount of devices present on the system.
  @(#) 2020-03-26: use ceil() to round up to more sensible numbers [Patrick Van der Veken]
  @(#) 2020-04-25: workaround for bug(?) in ioscan + display error when no dsf is found [Patrick Van der Veken]
  @(#) 2020-04-28: fix for array check [Patrick Van der Veken]
- @(#) 2020-05-13: fix on fix for array check [Patrick Van der Veken]
+ @(#) 2020-05-13: fix on fix for array check and for cdsf_bit [Patrick Van der Veken]

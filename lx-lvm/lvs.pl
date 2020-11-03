@@ -40,7 +40,7 @@ $|++;
 
 my ($os, $version, $footer);
 my %options;
-my (@vgdisplay, @lvdisplay);
+my (@vgdisplay, @lvdisplay, @df);
 my $lv_str_size=25;
 my $vg_str_size=15;
 
@@ -63,6 +63,7 @@ if ( @ARGV > 0 ) {
                 size|s=s
                 vg|g=s
                 terse|t
+                fs|f
             ));
 }
 # check options
@@ -85,6 +86,12 @@ if ($options{'vg'}) {
 }
 die "ERROR: could not retrieve VG info for $options{'vg'}" if ($?);
 
+# fetch FS
+if ($options{'fs'}) {
+    @df = `/usr/bin/df -Pkls`;
+    die "ERROR: could not retrieve FS info for $options{'df'}" if ($?);
+}
+
 # find max display size for LV & VG names
 @lvdisplay = `ls -1 /dev/vg*/l* 2>/dev/null`;
 foreach my $lv_entry (@lvdisplay) {
@@ -102,8 +109,13 @@ foreach my $lv_entry (@lvdisplay) {
 # print header
 unless ($options{'terse'}) {
 
-    printf STDOUT ("\n%-${lv_str_size}s %-${vg_str_size}s %-17s %-7s %-7s %-17s %-7s %-8s %-8s\n",
-        "LV", "VG", "Status", "Size", "Extents", "Permissions", "Mirrors", "Stripes", "Allocation");
+    if ($options{'fs'}) {
+        printf STDOUT ("\n%-${lv_str_size}s %-${vg_str_size}s %-17s %-7s %-10s %-30s %-10s %-10s\n",
+            "LV", "VG", "Status", "Size", "Extents", "Filesystem", "FS size", "FS free");
+    } else {
+        printf STDOUT ("\n%-${lv_str_size}s %-${vg_str_size}s %-17s %-7s %-7s %-17s %-7s %-8s %-18s\n",
+            "LV", "VG", "Status", "Size", "Extents", "Permissions", "Mirrors", "Stripes", "Allocation");
+    }
 }
 
 # loop over LVOLs (ASCII sorted)
@@ -117,8 +129,8 @@ foreach my $lvol (sort (@vgdisplay)) {
     # loop over lvdisplay
     foreach my $lv_entry (@lvdisplay) {
 
-        my ($vg_name, $lv_status, $lv_perm, $lv_alloc) = ("","","","");
-        my ($lv_mirrors, $lv_stripes, $lv_size, $lv_extent) = (0,0,0,0);
+        my ($vg_name, $lv_status, $lv_perm, $lv_alloc, $fs_name) = ("","","","","");
+        my ($lv_mirrors, $lv_stripes, $lv_size, $lv_extent, $fs_size, $fs_free) = (0,0,0,0,0,0);
 
         my @lv_data = split (/:/, $lv_entry);
 
@@ -127,18 +139,62 @@ foreach my $lvol (sort (@vgdisplay)) {
 
             $vg_name    = $1 if ($lv_field =~ m%^lv_name=/dev/(.*)/%);
             $lv_status  = $1 if ($lv_field =~ m%^lv_status=(.*)%);
-            $lv_perm    = $1 if ($lv_field =~ m%^lv_permission=(.*)%);
-            $lv_mirrors = $1 if ($lv_field =~ m%^mirror_copies=(.*)%);
-            $lv_stripes = $1 if ($lv_field =~ m%^stripes=(.*)%);
-            $lv_alloc   = $1 if ($lv_field =~ m%^allocation=(.*)%);
             $lv_size    = $1 if ($lv_field =~ m%^lv_size=(.*)%);
             $lv_extent  = $1 if ($lv_field =~ m%^current_le=(.*)%);
+            if (!defined ($options{'fs'})) {
+                $lv_perm    = $1 if ($lv_field =~ m%^lv_permission=(.*)%);
+                $lv_mirrors = $1 if ($lv_field =~ m%^mirror_copies=(.*)%);
+                $lv_stripes = $1 if ($lv_field =~ m%^stripes=(.*)%);
+                $lv_alloc   = $1 if ($lv_field =~ m%^allocation=(.*)%);
+            }
+        }
+        if ($options{'fs'}) {
+            # get fs name
+            foreach my $df_line (@df) {
+
+                my @fs_data = split (' ', $df_line);
+                ($fs_size, $fs_free, $fs_name) = @fs_data[1,3,5] if ($df_line =~ m/^$lv_name /);
+            }
+            $fs_name = "-" if ($fs_name eq "");
+            # convert to MB or GB
+            if ($fs_size) {
+                if ($options{'size'} =~ /MB/i) {
+                    $fs_size = $fs_size / 1024;
+                } else {
+                    $fs_size = $fs_size / 1024 / 1024;
+                }
+                $fs_size = ceil ($fs_size);
+            } else {
+                $fs_size = '0';
+            }
+            if ($fs_free) {
+                if ($options{'size'} =~ /MB/i) {
+                    $fs_free = $fs_free / 1024;
+                } else {
+                    $fs_free = $fs_free / 1024 / 1024;
+                }
+                $fs_free = ceil ($fs_free);
+            } else {
+                $fs_free = '0';
+            }
         }
         # convert to GB if needed
         $lv_size /= 1024 unless ($options{'size'} =~ /MB/i);
         $lv_size = ceil ($lv_size);
+
         # report data
-        printf STDOUT ("%-${lv_str_size}s %-${vg_str_size}s %-17s %-7d %-7d %-17s %-7s %-8s %-8s\n",
+        if ($options{'fs'}) {
+            printf STDOUT ("%-${lv_str_size}s %-${vg_str_size}s %-17s %-7d %-10d %-30s %-10d %-10d\n",
+                $lv_name,
+                $vg_name,
+                $lv_status,
+                $lv_size,
+                $lv_extent,
+                $fs_name,
+                $fs_size,
+                $fs_free)
+        } else {
+            printf STDOUT ("%-${lv_str_size}s %-${vg_str_size}s %-17s %-7d %-7d %-17s %-7s %-8s %-18s\n",
                 $lv_name,
                 $vg_name,
                 $lv_status,
@@ -148,6 +204,7 @@ foreach my $lvol (sort (@vgdisplay)) {
                 $lv_mirrors,
                 $lv_stripes,
                 $lv_alloc)
+        }
     }
 }
 
@@ -155,7 +212,7 @@ foreach my $lvol (sort (@vgdisplay)) {
 unless ($options{'terse'}) {
 
     $footer = qq{
-Note 1: 'Size' values are expressed in GB by default (see --help)
+Note 1: 'Size' values are expressed in GB by default and may contain rounding errors (see --help)
 Note 2: more detailed information can be obtained by running the pvdisplay(1M), vgdisplay(1M), lvdisplay(1M) commands
 
 };
@@ -176,13 +233,14 @@ __END__
 
 =head1 NAME
 
-lvs.pl - Show logical volume information in a terse way (Linux style).
+lvs.pl - Show logical volume (and some filesystem) information in a terse way (Linux style).
 
 =head1 SYNOPSIS
 
     lvs.pl [-h|--help]
            [(-g|--vg)=<vg_name>]
            [(-s|--size)=<MB|GB>]
+           [(-f|--fs]
            [(-t|--terse)]
 
 =head1 OPTIONS
@@ -201,9 +259,15 @@ S<       >Display logical volumes for a specific volume group.
 
 S<       >Show logical volume size in MB or GB (default is GB).
 
+=item -f | --fs
+
+S<       >Show filesystem mountpoint & data (if mounted). Hides logical volume data such as mirrors, stripes, allocation etc.
+
 =item -t | --terse
 
 S<       >Do not show header and footer information.
+
+=back
 
 =head1 AUTHOR
 
@@ -217,3 +281,4 @@ S<       >Do not show header and footer information.
  @(#) 2017-12-12: made LV+VG names display size dynamic, added --terse [Patrick Van der Veken]
  @(#) 2019-02-08: remove /dev/ prefix for VG [Patrick Van der Veken]
  @(#) 2020-03-26: use ceil() to round up to more sensible numbers [Patrick Van der Veken]
+ @(#) 2020-11-02: add support for --fs toggle [Patrick Van der Veken]

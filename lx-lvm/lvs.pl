@@ -43,6 +43,7 @@ my %options;
 my (@vgdisplay, @lvdisplay, @df);
 my $lv_str_size=25;
 my $vg_str_size=15;
+my $fs_str_size=20;
 
 
 #******************************************************************************
@@ -105,12 +106,21 @@ foreach my $lv_entry (@lvdisplay) {
     $str_size = length ($vg_entry[2]);
     $vg_str_size = $str_size if ($str_size > $vg_str_size);
 }
+# find max display size for FS names
+foreach my $df_entry (@df) {
+
+    my $str_size = 0; my @df_entry;
+
+    my @fs_data = split (' ', $df_entry);
+    $str_size = length (@fs_data[5]);
+    $fs_str_size = $str_size if ($str_size > $fs_str_size);
+}
 
 # print header
 unless ($options{'terse'}) {
 
     if ($options{'fs'}) {
-        printf STDOUT ("\n%-${lv_str_size}s %-${vg_str_size}s %-17s %-7s %-10s %-30s %-10s %-10s\n",
+        printf STDOUT ("\n%-${lv_str_size}s %-${vg_str_size}s %-17s %-7s %-10s %-${fs_str_size}s %-10s %-10s\n",
             "LV", "VG", "Status", "Size", "Extents", "Filesystem", "FS size", "FS free");
     } else {
         printf STDOUT ("\n%-${lv_str_size}s %-${vg_str_size}s %-17s %-7s %-7s %-17s %-7s %-8s %-18s\n",
@@ -184,7 +194,7 @@ foreach my $lvol (sort (@vgdisplay)) {
 
         # report data
         if ($options{'fs'}) {
-            printf STDOUT ("%-${lv_str_size}s %-${vg_str_size}s %-17s %-7d %-10d %-30s %-10d %-10d\n",
+            printf STDOUT ("%-${lv_str_size}s %-${vg_str_size}s %-17s %-7d %-10d %-${fs_str_size}s %-10d %-10d\n",
                 $lv_name,
                 $vg_name,
                 $lv_status,

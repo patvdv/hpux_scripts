@@ -112,7 +112,7 @@ foreach my $df_entry (@df) {
     my $str_size = 0; my @df_entry;
 
     my @fs_data = split (' ', $df_entry);
-    $str_size = length (@fs_data[5]);
+    $str_size = length ($fs_data[5]);
     $fs_str_size = $str_size if ($str_size > $fs_str_size);
 }
 

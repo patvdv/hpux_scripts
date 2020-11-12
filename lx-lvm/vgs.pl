@@ -42,6 +42,8 @@ $|++;
 my ($os, $version, $footer);
 my %options;
 my @vgdisplay;
+my @lsvg;
+my %devs;
 my $vg_str_size=15;
 
 
@@ -93,6 +95,21 @@ if ($options{'vg'}) {
     @vgdisplay = `/usr/sbin/vgdisplay -F 2>/dev/null`;
 }
 die "ERROR: could not retrieve VG info for $options{'vg'}" if ($?);
+
+# fetch dev numbers
+if (!$options{'pe'}) {
+    my $vg_field; my $vg_name;
+
+    @lsvg = `/usr/bin/ls -l /dev/*/group 2>/dev/null`;
+    foreach my $lsvg (@lsvg) {
+        $vg_field = (split (/\s+/, $lsvg))[9];
+        $vg_name  = (split (/\//, $vg_field))[2];
+        if ($vg_name) {
+            $devs{$vg_name}{'major'} = (split (/\s+/, $lsvg))[4];
+            $devs{$vg_name}{'minor'} = (split (/\s+/, $lsvg))[5];
+        }
+    }
+}
 
 # find max display size for VG name
 foreach my $vg_entry (@vgdisplay) {
@@ -169,12 +186,9 @@ foreach my $vg_entry (sort (@vgdisplay)) {
             $vg_max /= 1024 unless ($options{'size'} =~ /MB/i);
             $vg_max = ceil ($vg_max);
         }
-        # get minor number
-        $lsvg = `/usr/bin/ls -l /dev/${vg_name}/group 2>/dev/null`;
-        unless ($?) {
-            $vg_major = (split (/\s+/, $lsvg))[4];
-            $vg_minor = (split (/\s+/, $lsvg))[5];
-        }
+        # get major/minor number
+        $vg_major = $devs{$vg_name}{'major'} if ($devs{$vg_name}{'major'});
+        $vg_minor = $devs{$vg_name}{'minor'} if ($devs{$vg_name}{'minor'});
     }
 
     # report data
@@ -306,3 +320,4 @@ S<       >Do not show header and footer information.
  @(#) 2019-02-08: remove /dev/ prefix for VG [Patrick Van der Veken]
  @(#) 2020-03-26: use ceil() to round up to more sensible numbers [Patrick Van der Veken]
  @(#) 2020-11-10: add support for --pe & --pv toggles [Patrick Van der Veken]
+ @(#) 2020-11-12: made dev number discovery faster [Patrick Van der Veken]
